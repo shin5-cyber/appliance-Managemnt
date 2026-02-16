@@ -47,7 +47,7 @@
             const [notification, setNotification] = useState(null);
             const [isLoading, setIsLoading] = useState(false);
 
-            // 通知表示（修正：エラー時は自動で消さない）
+            // 通知表示
             const notify = (msg, type = 'success') => {
                 setNotification({ msg, type });
                 // 成功メッセージのみ3秒後に消す
@@ -180,7 +180,7 @@
                         </div>
                     </header>
 
-                    {/* 通知メッセージ（修正：閉じるボタン追加、エラー時のスタイル調整） */}
+                    {/* 通知メッセージ */}
                     {notification && (
                         <div className={`fixed top-16 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-lg shadow-xl text-white font-bold text-sm flex items-center gap-4 transition-all duration-300 ${notification.type === 'error' ? 'bg-red-600 border-2 border-red-800' : 'bg-green-600'}`} style={{width: '90%', maxWidth: '400px'}}>
                             <div className="flex-1">
@@ -326,8 +326,9 @@
                 reader.onloadend = async () => {
                     try {
                         const base64 = reader.result.split(',')[1];
-                        // Gemini API 呼び出し
-                        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+                        
+                        // モデル名を更新（gemini-1.5-flash-latestを使用）
+                        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiKey}`, {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({
@@ -339,17 +340,29 @@
                                 }]
                             })
                         });
-                        const json = await res.json();
-                        if (json.error) throw new Error(json.error.message);
                         
-                        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+                        const json = await res.json();
+                        
+                        // APIエラーハンドリング
+                        if (json.error) {
+                            console.error("API Error details:", json.error);
+                            throw new Error(`AIエラー: ${json.error.message} (${json.error.status})`);
+                        }
+                        
+                        // レスポンス解析
+                        if (!json.candidates || !json.candidates[0].content) {
+                            throw new Error("AIからの応答が空でした。");
+                        }
+
+                        const text = json.candidates[0].content.parts[0].text;
                         const match = text.match(/\{[\s\S]*\}/);
+                        
                         if (match) {
                             const extracted = JSON.parse(match[0]);
                             setData(prev => ({ ...prev, ...extracted }));
                             notify("解析完了！内容を確認してください");
                         } else {
-                            throw new Error("データが見つかりませんでした");
+                            throw new Error("画像から有効なデータを読み取れませんでした");
                         }
                     } catch (err) {
                         console.error(err);
@@ -434,7 +447,7 @@
                     
                     <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
                         <label className="block text-sm font-bold text-blue-900 mb-2"><i className="fa-brands fa-google mr-1"></i> Gemini APIキー</label>
-                        <p className="text-xs text-blue-700 mb-3">
+                        <p className="text-xs text-blue-700 mb-3 leading-relaxed">
                             レシート画像のAI解析機能を使用するには、Google AI StudioでAPIキーを取得して設定してください。<br/>
                             キーはブラウザ内にのみ保存されます。
                         </p>
