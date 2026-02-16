@@ -63,7 +63,8 @@
             };
 
             const handleOp = (op) => {
-                setExpression(display + ' ' + op + ' ');
+                // 修正: 既存の計算式を維持しつつ、現在の数値と演算子を追加
+                setExpression(prev => prev + display + ' ' + op + ' ');
                 setDisplay('0');
             };
 
@@ -259,6 +260,7 @@
 
             return (
                 <div className="max-w-xl mx-auto bg-white min-h-screen shadow-2xl relative font-sans text-slate-800">
+                    {/* ヘッダー */}
                     <header className="bg-gradient-to-r from-slate-700 to-slate-800 text-white p-4 sticky top-0 z-20 shadow-md flex justify-between items-center">
                         <h1 className="font-bold text-lg"><i className="fa-solid fa-plug mr-2"></i>家電管理帳</h1>
                         <div className="flex gap-2">
@@ -269,16 +271,20 @@
                         </div>
                     </header>
 
+                    {/* 通知メッセージ（エラー時は自動で消さない） */}
                     {notification && (
                         <div className={`fixed top-16 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-lg shadow-xl text-white font-bold text-sm flex items-center gap-4 transition-all duration-300 ${notification.type === 'error' ? 'bg-red-600 border-2 border-red-800' : 'bg-green-600'}`} style={{width: '90%', maxWidth: '400px'}}>
                             <div className="flex-1">
                                 {notification.type === 'error' && <i className="fa-solid fa-circle-exclamation mr-2"></i>}
                                 {notification.msg}
                             </div>
-                            <button onClick={closeNotification} className="bg-white/20 hover:bg-white/40 rounded-full p-1 w-8 h-8 flex items-center justify-center transition"><i className="fa-solid fa-xmark"></i></button>
+                            <button onClick={closeNotification} className="bg-white/20 hover:bg-white/40 rounded-full p-1 w-8 h-8 flex items-center justify-center transition">
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
                         </div>
                     )}
 
+                    {/* メインエリア */}
                     <div className="p-4 pb-24">
                         {view === 'list' && (
                             <ListView 
@@ -328,12 +334,14 @@
 
             return (
                 <div className="space-y-4 animate-fade-in">
+                    {/* 検索バー */}
                     <div className="relative">
                         <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-gray-400"></i>
                         <input className="w-full pl-10 p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition" 
                             placeholder="検索..." value={search} onChange={e => setSearch(e.target.value)} />
                     </div>
 
+                    {/* ツールバー */}
                     <div className="flex justify-between items-center text-xs text-slate-500 px-1">
                         <div className="flex gap-4">
                             <label className="cursor-pointer hover:text-blue-600 flex items-center gap-1">
@@ -345,6 +353,7 @@
                         <span className="font-bold">{filtered.length} 件</span>
                     </div>
 
+                    {/* リスト表示 */}
                     <div className="space-y-3">
                         {filtered.length === 0 && (
                             <div className="text-center py-16 text-gray-400">
@@ -586,6 +595,18 @@
                         <div className="pt-2 text-right">
                             <button onClick={() => onSave(key, model)} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-sm">保存</button>
                         </div>
+                        
+                        <div className="text-right">
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-xs text-blue-600 underline">APIキーを取得する</a>
+                        </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100">
+                        <h3 className="font-bold text-slate-700 mb-2">データ管理について</h3>
+                        <p className="text-sm text-slate-600 leading-relaxed mb-4">
+                            データはこの端末のブラウザ（ローカルストレージ）に保存されています。<br/>
+                            ブラウザのキャッシュクリア等で消える可能性があるため、定期的に「エクスポート」を行ってください。
+                        </p>
                     </div>
                     <div className="text-center text-slate-400 text-xs mt-4">Appliance Manager Local v2.0</div>
                 </div>
