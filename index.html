@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        body { font-family: sans-serif; background-color: #f1f5f9; }
+        body { font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; background-color: #f1f5f9; }
         #root { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.3s ease-out; }
@@ -45,7 +45,7 @@
         // --- 電卓モーダル ---
         function CalculatorModal({ isOpen, onClose, onConfirm, initialValue, title }) {
             const [display, setDisplay] = useState('0');
-            const [expression, setExpression] = useState(''); // 計算式保持用
+            const [expression, setExpression] = useState(''); 
 
             useEffect(() => {
                 if (isOpen) {
@@ -162,7 +162,8 @@
                 try {
                     const saved = localStorage.getItem(STORAGE_KEY_ITEMS);
                     if (saved) {
-                        setItems(sortItems(JSON.parse(saved)));
+                        // 読み込み時は購入日順（デフォルト）
+                        setItems(sortItems(JSON.parse(saved), 'date'));
                     }
                 } catch (e) {
                     notify("データ読み込み失敗", "error");
@@ -170,16 +171,22 @@
             }, []);
 
             const saveToStorage = (newItems) => {
-                const sorted = sortItems(newItems);
+                // 保存時は日付順で保存しておく
+                const sorted = sortItems(newItems, 'date');
                 setItems(sorted);
                 localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(sorted));
             };
 
-            const sortItems = (data) => {
+            const sortItems = (data, key) => {
                 return [...data].sort((a, b) => {
-                    const dateA = a.purchaseDate || '';
-                    const dateB = b.purchaseDate || '';
-                    return dateB.localeCompare(dateA);
+                    if (key === 'date') {
+                        // 購入日 新しい順
+                        const dateA = a.purchaseDate || '';
+                        const dateB = b.purchaseDate || '';
+                        return dateB.localeCompare(dateA);
+                    }
+                    // その他のソートはListView側で実施するが、一応ここでも定義可能
+                    return 0;
                 });
             };
 
@@ -256,7 +263,6 @@
 
             return (
                 <div className="max-w-xl mx-auto bg-white min-h-screen shadow-2xl relative font-sans text-slate-800">
-                    {/* ヘッダー */}
                     <header className="bg-gradient-to-r from-slate-700 to-slate-800 text-white p-4 sticky top-0 z-20 shadow-md flex justify-between items-center">
                         <h1 className="font-bold text-lg"><i className="fa-solid fa-plug mr-2"></i>家電管理帳</h1>
                         <div className="flex gap-2">
@@ -267,20 +273,16 @@
                         </div>
                     </header>
 
-                    {/* 通知メッセージ */}
                     {notification && (
                         <div className={`fixed top-16 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-lg shadow-xl text-white font-bold text-sm flex items-center gap-4 transition-all duration-300 ${notification.type === 'error' ? 'bg-red-600 border-2 border-red-800' : 'bg-green-600'}`} style={{width: '90%', maxWidth: '400px'}}>
                             <div className="flex-1">
                                 {notification.type === 'error' && <i className="fa-solid fa-circle-exclamation mr-2"></i>}
                                 {notification.msg}
                             </div>
-                            <button onClick={closeNotification} className="bg-white/20 hover:bg-white/40 rounded-full p-1 w-8 h-8 flex items-center justify-center transition">
-                                <i className="fa-solid fa-xmark"></i>
-                            </button>
+                            <button onClick={closeNotification} className="bg-white/20 hover:bg-white/40 rounded-full p-1 w-8 h-8 flex items-center justify-center transition"><i className="fa-solid fa-xmark"></i></button>
                         </div>
                     )}
 
-                    {/* メインエリア */}
                     <div className="p-4 pb-24">
                         {view === 'list' && (
                             <ListView 
@@ -319,7 +321,30 @@
         // --- リスト画面 ---
         function ListView({ items, onAdd, onEdit, onDelete, onExport, onImport }) {
             const [search, setSearch] = useState('');
-            const filtered = items.filter(i => {
+            const [sortOrder, setSortOrder] = useState('date'); // date, location, name
+
+            // ソート処理
+            const sortedItems = [...items].sort((a, b) => {
+                if (sortOrder === 'date') {
+                    // 購入日の新しい順
+                    const da = a.purchaseDate || '';
+                    const db = b.purchaseDate || '';
+                    return db.localeCompare(da);
+                } else if (sortOrder === 'location') {
+                    // 設置場所 (あいうえお順)
+                    const la = a.location || '';
+                    const lb = b.location || '';
+                    return la.localeCompare(lb, 'ja');
+                } else if (sortOrder === 'name') {
+                    // 製品名 (あいうえお順)
+                    const na = a.name || '';
+                    const nb = b.name || '';
+                    return na.localeCompare(nb, 'ja');
+                }
+                return 0;
+            });
+
+            const filtered = sortedItems.filter(i => {
                 const term = search.toLowerCase();
                 return (i.name || '').toLowerCase().includes(term) || 
                        (i.store || '').toLowerCase().includes(term) || 
@@ -332,11 +357,21 @@
 
             return (
                 <div className="space-y-4 animate-fade-in">
-                    {/* 検索バー */}
-                    <div className="relative">
-                        <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-gray-400"></i>
-                        <input className="w-full pl-10 p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition" 
-                            placeholder="検索..." value={search} onChange={e => setSearch(e.target.value)} />
+                    {/* 検索・ソート */}
+                    <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 space-y-3">
+                        <div className="relative">
+                            <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-gray-400"></i>
+                            <input className="w-full pl-10 p-3 bg-slate-50 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition" 
+                                placeholder="検索..." value={search} onChange={e => setSearch(e.target.value)} />
+                        </div>
+                        <div className="flex items-center justify-end gap-2 text-sm text-slate-600">
+                            <span className="text-xs"><i className="fa-solid fa-arrow-down-wide-short"></i> 並び替え:</span>
+                            <select value={sortOrder} onChange={e => setSortOrder(e.target.value)} className="bg-slate-50 border border-slate-200 rounded p-1 text-xs outline-none">
+                                <option value="date">購入日 (新しい順)</option>
+                                <option value="location">設置場所 (あいうえお順)</option>
+                                <option value="name">製品名 (あいうえお順)</option>
+                            </select>
+                        </div>
                     </div>
 
                     {/* ツールバー */}
@@ -363,22 +398,22 @@
                             <div key={item.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition">
                                 <div className="mb-2">
                                     <div className="flex justify-between items-start">
-                                        <div>
+                                        <div className="flex-1">
                                             <div className="text-xs text-slate-500 font-bold mb-0.5">{item.manufacturer}</div>
                                             <h3 className="font-bold text-lg text-slate-800 leading-tight">{item.name}</h3>
                                         </div>
-                                        {item.location && <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full whitespace-nowrap ml-2"><i className="fa-solid fa-location-dot mr-1"></i>{item.location}</span>}
+                                        {item.location && <span className="flex-shrink-0 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full ml-2"><i className="fa-solid fa-location-dot mr-1"></i>{item.location}</span>}
                                     </div>
                                 </div>
                                 <div className="text-sm text-slate-600 space-y-1">
                                     <div className="grid grid-cols-2 gap-2 text-xs">
-                                        <span className="truncate"><i className="fa-regular fa-calendar mr-1 w-4 text-center"></i> {item.purchaseDate || '-'}</span>
-                                        <span className="truncate"><i className="fa-solid fa-store mr-1 w-4 text-center"></i> {item.store || '-'}</span>
+                                        <span className="truncate" title="購入日"><i className="fa-regular fa-calendar mr-1 w-4 text-center"></i> 購: {item.purchaseDate || '-'}</span>
+                                        <span className="truncate" title="設置日"><i className="fa-solid fa-truck-ramp-box mr-1 w-4 text-center"></i> 設: {item.installDate || '-'}</span>
                                     </div>
                                     <div className="text-xs text-slate-500">
                                         <i className="fa-solid fa-barcode mr-1 w-4 text-center"></i> S/N: {item.serialNumber || '---'}
                                     </div>
-                                    <div className="flex justify-between font-bold text-slate-700 pt-1 border-t border-dashed border-slate-200 mt-2">
+                                    <div className="flex justify-between font-bold text-slate-700 pt-2 border-t border-dashed border-slate-200 mt-2">
                                         <span className="text-xs font-normal text-slate-400">総額 (リサイクル込)</span>
                                         <span className="text-lg">&yen; {total(item).toLocaleString()}</span>
                                     </div>
@@ -407,7 +442,7 @@
         // --- 登録・編集フォーム ---
         function FormView({ initialData, onSave, onCancel, geminiKey, geminiModel, notify, isLoading }) {
             const [data, setData] = useState({
-                name: '', manufacturer: '', serialNumber: '', purchaseDate: new Date().toISOString().split('T')[0], store: '', location: '',
+                name: '', manufacturer: '', serialNumber: '', purchaseDate: new Date().toISOString().split('T')[0], installDate: '', store: '', location: '',
                 price: '', installCost: '', partsCost: '', recycleCost: '', warrantyDate: '', memo: '',
                 ...initialData
             });
@@ -419,7 +454,6 @@
             // 合計金額の計算
             const currentTotal = (Number(data.price)||0) + (Number(data.installCost)||0) + (Number(data.partsCost)||0) + (Number(data.recycleCost)||0);
 
-            // 電卓操作
             const openCalc = (field) => setCalcTarget(field);
             const closeCalc = () => setCalcTarget(null);
             const confirmCalc = (val) => {
@@ -439,14 +473,14 @@
                         const base64 = reader.result.split(',')[1];
                         const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`;
 
-                        // プロンプトにメーカー名と製造番号を追加
+                        // プロンプトに設置日を追加
                         const res = await fetch(url, {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({
                                 contents: [{
                                     parts: [
-                                        {text: "画像を解析しJSONのみ出力: {name:製品名, manufacturer:メーカー名, serialNumber:製造番号, purchaseDate:YYYY-MM-DD, store:店名, price:本体価格(数値), installCost:工事費(数値), partsCost:部材費(数値), recycleCost:リサイクル費(数値), warrantyDate:保証期限(YYYY-MM-DD)}"},
+                                        {text: "画像を解析しJSONのみ出力: {name:製品名, manufacturer:メーカー名, serialNumber:製造番号, purchaseDate:購入日(YYYY-MM-DD), installDate:設置日(YYYY-MM-DD), store:店名, price:本体価格(数値), installCost:工事費(数値), partsCost:部材費(数値), recycleCost:リサイクル費(数値), warrantyDate:保証期限(YYYY-MM-DD)}"},
                                         {inline_data: {mime_type: file.type, data: base64}}
                                     ]
                                 }]
@@ -515,16 +549,22 @@
                                 <input type="date" name="purchaseDate" value={data.purchaseDate} onChange={handleChange} className="w-full p-3 border rounded-lg bg-slate-50" />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-slate-500">設置場所</label>
-                                <input name="location" value={data.location} onChange={handleChange} className="w-full p-3 border rounded-lg bg-slate-50" placeholder="キッチン" />
+                                <label className="text-xs font-bold text-slate-500">設置日</label>
+                                <input type="date" name="installDate" value={data.installDate} onChange={handleChange} className="w-full p-3 border rounded-lg bg-slate-50" />
                             </div>
                         </div>
-                        <div>
-                            <label className="text-xs font-bold text-slate-500">店舗</label>
-                            <input name="store" value={data.store} onChange={handleChange} className="w-full p-3 border rounded-lg bg-slate-50" placeholder="ヨドバシカメラ" />
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs font-bold text-slate-500">設置場所</label>
+                                <input name="location" value={data.location} onChange={handleChange} className="w-full p-3 border rounded-lg bg-slate-50" placeholder="例: キッチン" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500">店舗</label>
+                                <input name="store" value={data.store} onChange={handleChange} className="w-full p-3 border rounded-lg bg-slate-50" placeholder="ヨドバシカメラ" />
+                            </div>
                         </div>
                         
-                        {/* 費用入力エリア */}
                         <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                             <label className="text-xs font-bold text-slate-500 mb-3 block border-b border-slate-200 pb-1"><i className="fa-solid fa-coins"></i> 費用詳細（電卓で合算可能）</label>
                             
@@ -555,7 +595,6 @@
                         </button>
                     </form>
 
-                    {/* 電卓モーダル */}
                     <CalculatorModal 
                         isOpen={!!calcTarget} 
                         title={calcTarget === 'price' ? '本体価格' : calcTarget === 'installCost' ? '工事費' : calcTarget === 'partsCost' ? '部材費' : 'リサイクル費'}
@@ -567,7 +606,6 @@
             );
         }
 
-        // 金額入力用サブコンポーネント
         function CostInput({ label, name, value, onChange, onCalc }) {
             return (
                 <div className="flex items-center gap-2">
@@ -626,7 +664,7 @@
                             ブラウザのキャッシュクリア等で消える可能性があるため、定期的に「エクスポート」を行ってください。
                         </p>
                     </div>
-                    <div className="text-center text-slate-400 text-xs mt-4">Appliance Manager Local v2.1</div>
+                    <div className="text-center text-slate-400 text-xs mt-4">Appliance Manager Local v2.2</div>
                 </div>
             );
         }
