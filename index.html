@@ -144,7 +144,6 @@
         function UpdateConfirmModal({ isOpen, onClose, onConfirm, currentData, newData }) {
             const [selectedFields, setSelectedFields] = useState({});
             
-            // 差分のあるフィールドを抽出
             const diffFields = useMemo(() => {
                 if (!newData) return [];
                 const fields = [
@@ -160,14 +159,13 @@
                     { key: 'installCost', label: '工事費' },
                     { key: 'partsCost', label: '部材費' },
                     { key: 'recycleCost', label: 'リサイクル費' },
+                    { key: 'discount', label: '値引き' }, // 追加
                     { key: 'warrantyDate', label: '保証期限' }
                 ];
 
                 return fields.filter(({ key }) => {
                     const newVal = newData[key];
                     const curVal = currentData[key];
-                    // 新しい値があり、かつ現在の値と異なる場合のみ候補にする
-                    // ※新しい値が空の場合は無視（既存情報を消さないため）
                     return newVal !== undefined && newVal !== null && String(newVal).trim() !== '' && String(newVal) !== String(curVal);
                 }).map(field => ({
                     ...field,
@@ -176,7 +174,6 @@
                 }));
             }, [currentData, newData]);
 
-            // 初期状態で全てチェック
             useEffect(() => {
                 if (isOpen && diffFields.length > 0) {
                     const initial = {};
@@ -556,7 +553,7 @@
             });
 
             const total = (i) => {
-                const purchaseCost = (Number(i.price)||0) + (Number(i.installCost)||0) + (Number(i.partsCost)||0) + (Number(i.recycleCost)||0);
+                const purchaseCost = (Number(i.price)||0) + (Number(i.installCost)||0) + (Number(i.partsCost)||0) + (Number(i.recycleCost)||0) - (Number(i.discount)||0);
                 const repairCost = (i.repairHistory || []).reduce((sum, r) => sum + (Number(r.repairCost)||0) + (Number(r.visitCost)||0), 0);
                 return purchaseCost + repairCost;
             };
@@ -653,7 +650,7 @@
         function FormView({ initialData, onSave, onCancel, geminiKey, geminiModel, notify, isLoading }) {
             const [data, setData] = useState({
                 name: '', modelNumber: '', manufacturer: '', serialNumber: '', purchaseDate: new Date().toISOString().split('T')[0], installDate: '', store: '', location: '',
-                price: '', installCost: '', partsCost: '', recycleCost: '', warrantyDate: '', memo: '',
+                price: '', installCost: '', partsCost: '', recycleCost: '', discount: '', warrantyDate: '', memo: '',
                 repairHistory: [],
                 ...initialData
             });
@@ -664,7 +661,8 @@
 
             const handleChange = e => setData({ ...data, [e.target.name]: e.target.value });
 
-            const currentTotal = (Number(data.price)||0) + (Number(data.installCost)||0) + (Number(data.partsCost)||0) + (Number(data.recycleCost)||0);
+            // 合計金額の計算（値引きを反映）
+            const currentTotal = (Number(data.price)||0) + (Number(data.installCost)||0) + (Number(data.partsCost)||0) + (Number(data.recycleCost)||0) - (Number(data.discount)||0);
             const repairTotal = (data.repairHistory || []).reduce((sum, r) => sum + (Number(r.repairCost)||0) + (Number(r.visitCost)||0), 0);
 
             const openCalc = (field) => setCalcTarget(field);
@@ -718,7 +716,7 @@
                             body: JSON.stringify({
                                 contents: [{
                                     parts: [
-                                        {text: "画像を解析しJSONのみ出力: {name:製品名, modelNumber:型名(型番), manufacturer:メーカー名, serialNumber:製造番号, purchaseDate:購入日(YYYY-MM-DD), installDate:設置日(YYYY-MM-DD), store:店名, price:本体価格(数値), installCost:工事費(数値), partsCost:部材費(数値), recycleCost:リサイクル費(数値), warrantyDate:保証期限(YYYY-MM-DD)}"},
+                                        {text: "画像を解析しJSONのみ出力: {name:製品名, modelNumber:型名(型番), manufacturer:メーカー名, serialNumber:製造番号, purchaseDate:購入日(YYYY-MM-DD), installDate:設置日(YYYY-MM-DD), store:店名, price:本体価格(数値), installCost:工事費(数値), partsCost:部材費(数値), recycleCost:リサイクル費(数値), discount:値引き(数値), warrantyDate:保証期限(YYYY-MM-DD)}"},
                                         {inline_data: {mime_type: file.type, data: base64}}
                                     ]
                                 }]
@@ -817,6 +815,7 @@
                                 <CostInput label="工事費" name="installCost" value={data.installCost} onChange={handleChange} onCalc={() => openCalc('installCost')} />
                                 <CostInput label="部材費" name="partsCost" value={data.partsCost} onChange={handleChange} onCalc={() => openCalc('partsCost')} />
                                 <CostInput label="リサイクル費" name="recycleCost" value={data.recycleCost} onChange={handleChange} onCalc={() => openCalc('recycleCost')} />
+                                <CostInput label="値引き" name="discount" value={data.discount} onChange={handleChange} onCalc={() => openCalc('discount')} isDiscount={true} />
                             </div>
 
                             <div className="mt-4 pt-3 border-t border-slate-300 flex justify-between items-center">
@@ -876,7 +875,13 @@
 
                     <CalculatorModal 
                         isOpen={!!calcTarget} 
-                        title={calcTarget === 'price' ? '本体価格' : calcTarget === 'installCost' ? '工事費' : calcTarget === 'partsCost' ? '部材費' : 'リサイクル費'}
+                        title={
+                            calcTarget === 'price' ? '本体価格' : 
+                            calcTarget === 'installCost' ? '工事費' : 
+                            calcTarget === 'partsCost' ? '部材費' : 
+                            calcTarget === 'recycleCost' ? 'リサイクル費' : 
+                            calcTarget === 'discount' ? '値引き' : '金額入力'
+                        }
                         initialValue={data[calcTarget]} 
                         onClose={closeCalc} 
                         onConfirm={confirmCalc} 
@@ -903,12 +908,12 @@
             );
         }
 
-        function CostInput({ label, name, value, onChange, onCalc }) {
+        function CostInput({ label, name, value, onChange, onCalc, isDiscount }) {
             return (
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-slate-500 w-20">{label}</span>
                     <div className="flex-1 relative">
-                        <input type="number" name={name} value={value} onChange={onChange} className="w-full p-2 pr-10 border rounded text-right bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="0" />
+                        <input type="number" name={name} value={value} onChange={onChange} className={`w-full p-2 pr-10 border rounded text-right bg-white focus:ring-2 focus:ring-blue-500 outline-none ${isDiscount ? 'text-red-500 font-bold' : ''}`} placeholder="0" />
                         <button type="button" onClick={onCalc} className="absolute right-1 top-1 bottom-1 px-2 text-slate-400 hover:text-indigo-600 transition">
                             <i className="fa-solid fa-calculator"></i>
                         </button>
@@ -961,7 +966,7 @@
                             ブラウザのキャッシュクリア等で消える可能性があるため、定期的に「エクスポート」を行ってください。
                         </p>
                     </div>
-                    <div className="text-center text-slate-400 text-xs mt-4">Appliance Manager Local v2.5</div>
+                    <div className="text-center text-slate-400 text-xs mt-4">Appliance Manager Local v2.6</div>
                 </div>
             );
         }
