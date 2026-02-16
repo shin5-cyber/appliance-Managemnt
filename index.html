@@ -1,56 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
 import { Camera, Save, Trash2, Settings, List, Plus, Download, Upload, Calendar, Store, MapPin, DollarSign, AlertCircle } from 'lucide-react';
 
-// --- Firebase設定 ---
-// ★重要: ここにFirebaseコンソールの設定を貼り付けてください
-const manualConfig = {
-  apiKey: "API_KEY_HERE",
-  authDomain: "PROJECT_ID.firebaseapp.com",
-  projectId: "PROJECT_ID",
-  storageBucket: "PROJECT_ID.appspot.com",
-  messagingSenderId: "SENDER_ID",
-  appId: "APP_ID"
-};
-
-// 環境変数または手動設定を使用
-const getFirebaseConfig = () => {
-  try {
-    if (typeof __firebase_config !== 'undefined') {
-      return JSON.parse(__firebase_config);
-    }
-  } catch (e) {
-    console.warn("Environment config error");
-  }
-  return manualConfig;
-};
-
-const firebaseConfig = getFirebaseConfig();
-const APP_ID = typeof __app_id !== 'undefined' ? __app_id : "appliance-manager-v3";
-
-// Firebase初期化 (コンポーネント外で一度だけ実行)
-let app, auth, db;
-try {
-  if (firebaseConfig.apiKey !== "API_KEY_HERE") {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-  }
-} catch (e) {
-  console.error("Firebase Initialization Error:", e);
-}
+// ローカルストレージのキー
+const STORAGE_KEY_ITEMS = 'appliance_manager_items';
+const STORAGE_KEY_API = 'gemini_api_key';
 
 export default function App() {
-  const [user, setUser] = useState(null);
   const [items, setItems] = useState([]);
   const [view, setView] = useState('list'); // list, form, settings
   const [editingItem, setEditingItem] = useState(null);
-  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem(STORAGE_KEY_API) || '');
   const [notification, setNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isConfigReady, setIsConfigReady] = useState(false);
 
   // 通知表示
   const notify = (msg, type = 'info') => {
@@ -58,91 +19,85 @@ export default function App() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // Firebase認証とデータ同期
+  // 初回ロード：ローカルストレージからデータを取得
   useEffect(() => {
-    if (!auth) {
-      setIsConfigReady(false);
-      return;
-    }
-    setIsConfigReady(true);
-
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (e) {
-        console.error("Auth Error:", e);
-        notify("認証エラーが発生しました", "error");
+    try {
+      const savedItems = localStorage.getItem(STORAGE_KEY_ITEMS);
+      if (savedItems) {
+        const parsedItems = JSON.parse(savedItems);
+        // 日付の降順でソート
+        parsedItems.sort((a, b) => {
+          const dateA = a.purchaseDate || '';
+          const dateB = b.purchaseDate || '';
+          return dateB.localeCompare(dateA);
+        });
+        setItems(parsedItems);
       }
-    };
-    initAuth();
-
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-
-    return () => unsubscribeAuth();
+    } catch (e) {
+      console.error("Failed to load items:", e);
+      notify("データの読み込みに失敗しました", "error");
+    }
   }, []);
 
-  // データ取得
-  useEffect(() => {
-    if (!user || !db) return;
-
-    // Rule 1: Strict Path & Rule 2: Simple Query
-    const q = query(
-      collection(db, 'artifacts', APP_ID, 'users', user.uid, 'items')
-    );
-
-    const unsubscribeData = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // メモリ上でソート
-      data.sort((a, b) => {
+  // データを保存するヘルパー関数
+  const saveToStorage = (newItems) => {
+    try {
+      // 日付の降順でソートして保存
+      newItems.sort((a, b) => {
         const dateA = a.purchaseDate || '';
         const dateB = b.purchaseDate || '';
-        return dateB.localeCompare(dateA); // 降順
+        return dateB.localeCompare(dateA);
       });
-      setItems(data);
-    }, (error) => {
-      console.error("Data Fetch Error:", error);
-      notify("データの取得に失敗しました", "error");
-    });
-
-    return () => unsubscribeData();
-  }, [user]);
+      setItems(newItems);
+      localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(newItems));
+    } catch (e) {
+      console.error("Failed to save items:", e);
+      notify("データの保存に失敗しました（容量不足の可能性があります）", "error");
+    }
+  };
 
   // CRUD操作
   const handleSave = async (formData) => {
-    if (!db || !user) return notify("データベースに接続されていません", "error");
     setIsLoading(true);
+    // 擬似的な遅延（保存処理のフィードバック用）
+    await new Promise(resolve => setTimeout(resolve, 300));
+
     try {
-      const collectionRef = collection(db, 'artifacts', APP_ID, 'users', user.uid, 'items');
-      
+      let newItems = [...items];
       if (formData.id) {
-        const docRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'items', formData.id);
-        const { id, ...data } = formData;
-        await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
-        notify("更新しました", "success");
+        // 更新
+        const index = newItems.findIndex(item => item.id === formData.id);
+        if (index !== -1) {
+          newItems[index] = { ...formData, updatedAt: new Date().toISOString() };
+          notify("更新しました", "success");
+        }
       } else {
-        await addDoc(collectionRef, { ...formData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        // 新規作成
+        const newItem = {
+          ...formData,
+          id: crypto.randomUUID(), // ランダムなIDを生成
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        newItems.push(newItem);
         notify("登録しました", "success");
       }
+      
+      saveToStorage(newItems);
       setView('list');
     } catch (e) {
       console.error(e);
-      notify("保存に失敗しました: " + e.message, "error");
+      notify("エラーが発生しました: " + e.message, "error");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!db || !user) return;
     if (!confirm("本当に削除しますか？")) return;
     try {
-      await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'items', id));
+      const newItems = items.filter(item => item.id !== id);
+      saveToStorage(newItems);
       notify("削除しました", "success");
     } catch (e) {
       notify("削除エラー", "error");
@@ -171,19 +126,20 @@ export default function App() {
       try {
         const imported = JSON.parse(event.target.result);
         if (!Array.isArray(imported)) throw new Error("形式が不正です");
-        if (!confirm(`${imported.length}件をインポートしますか？`)) return;
+        if (!confirm(`${imported.length}件をインポートしますか？（現在のデータに追加されます）`)) return;
         
         setIsLoading(true);
-        const batch = writeBatch(db);
-        const collectionRef = collection(db, 'artifacts', APP_ID, 'users', user.uid, 'items');
         
-        imported.forEach(item => {
-          const ref = doc(collectionRef);
-          const { id, ...data } = item;
-          batch.set(ref, { ...data, importedAt: new Date() });
-        });
+        // 既存のデータとマージ（IDが重複する場合は新しいものを優先などのロジックも可能だが、ここでは単純追加しIDを再生成して重複回避）
+        const newItemsToAdd = imported.map(item => ({
+          ...item,
+          id: crypto.randomUUID(), // IDの衝突を避けるため再生成
+          importedAt: new Date().toISOString()
+        }));
+
+        const mergedItems = [...items, ...newItemsToAdd];
+        saveToStorage(mergedItems);
         
-        await batch.commit();
         notify("インポート完了", "success");
       } catch (err) {
         notify("インポート失敗: " + err.message, "error");
@@ -194,25 +150,13 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  if (!isConfigReady) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-slate-50 text-slate-600 p-4">
-        <AlertCircle size={48} className="mb-4 text-yellow-500" />
-        <h2 className="text-xl font-bold mb-2">設定が必要です</h2>
-        <p className="text-center text-sm mb-4">
-          コード内の <code>manualConfig</code> にFirebaseの設定情報を入力してください。
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-md mx-auto bg-slate-50 min-h-screen pb-20 relative font-sans text-slate-800">
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 sticky top-0 z-20 shadow-md flex justify-between items-center">
         <h1 className="font-bold text-lg flex items-center gap-2">
           <Settings size={20} className="hidden" /> 
-          家電管理
+          家電管理（ローカル）
         </h1>
         <div className="flex gap-2">
           <button onClick={() => setView('settings')} className="p-2 hover:bg-white/20 rounded-full transition"><Settings size={20} /></button>
@@ -252,7 +196,7 @@ export default function App() {
         {view === 'settings' && (
           <SettingsView 
             geminiKey={geminiKey} 
-            onSave={(k) => { setGeminiKey(k); localStorage.setItem('gemini_api_key', k); notify("保存しました", "success"); }} 
+            onSave={(k) => { setGeminiKey(k); localStorage.setItem(STORAGE_KEY_API, k); notify("保存しました", "success"); }} 
             onBack={() => setView('list')} 
           />
         )}
@@ -453,11 +397,11 @@ function SettingsView({ geminiKey, onSave, onBack }) {
       <div className="border-t pt-6">
         <h3 className="font-bold text-gray-700 mb-2">データ管理について</h3>
         <p className="text-sm text-gray-600 leading-relaxed">
-            Firebase Firestoreを使用しています。ブラウザのキャッシュをクリアすると、認証情報（匿名ログイン）がリセットされ、以前のデータが見えなくなる可能性があります。<br/>
-            大切なデータはこまめに「エクスポート」することをお勧めします。
+            データはこの端末のブラウザ（ローカルストレージ）に保存されます。<br/>
+            ブラウザの履歴削除などを行うと消える可能性があるため、定期的に「エクスポート」を行ってください。
         </p>
       </div>
-      <div className="text-center text-gray-400 text-xs mt-10">Appliance Manager v3.0 (React Native)</div>
+      <div className="text-center text-gray-400 text-xs mt-10">Appliance Manager v4.0 (LocalStorage)</div>
     </div>
   );
 }
