@@ -1,0 +1,463 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { Camera, Save, Trash2, Settings, List, Plus, Download, Upload, Calendar, Store, MapPin, DollarSign, AlertCircle } from 'lucide-react';
+
+// --- Firebase設定 ---
+// ★重要: ここにFirebaseコンソールの設定を貼り付けてください
+const manualConfig = {
+  apiKey: "API_KEY_HERE",
+  authDomain: "PROJECT_ID.firebaseapp.com",
+  projectId: "PROJECT_ID",
+  storageBucket: "PROJECT_ID.appspot.com",
+  messagingSenderId: "SENDER_ID",
+  appId: "APP_ID"
+};
+
+// 環境変数または手動設定を使用
+const getFirebaseConfig = () => {
+  try {
+    if (typeof __firebase_config !== 'undefined') {
+      return JSON.parse(__firebase_config);
+    }
+  } catch (e) {
+    console.warn("Environment config error");
+  }
+  return manualConfig;
+};
+
+const firebaseConfig = getFirebaseConfig();
+const APP_ID = typeof __app_id !== 'undefined' ? __app_id : "appliance-manager-v3";
+
+// Firebase初期化 (コンポーネント外で一度だけ実行)
+let app, auth, db;
+try {
+  if (firebaseConfig.apiKey !== "API_KEY_HERE") {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+  }
+} catch (e) {
+  console.error("Firebase Initialization Error:", e);
+}
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [items, setItems] = useState([]);
+  const [view, setView] = useState('list'); // list, form, settings
+  const [editingItem, setEditingItem] = useState(null);
+  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+  const [notification, setNotification] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isConfigReady, setIsConfigReady] = useState(false);
+
+  // 通知表示
+  const notify = (msg, type = 'info') => {
+    setNotification({ msg, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  // Firebase認証とデータ同期
+  useEffect(() => {
+    if (!auth) {
+      setIsConfigReady(false);
+      return;
+    }
+    setIsConfigReady(true);
+
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (e) {
+        console.error("Auth Error:", e);
+        notify("認証エラーが発生しました", "error");
+      }
+    };
+    initAuth();
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  // データ取得
+  useEffect(() => {
+    if (!user || !db) return;
+
+    // Rule 1: Strict Path & Rule 2: Simple Query
+    const q = query(
+      collection(db, 'artifacts', APP_ID, 'users', user.uid, 'items')
+    );
+
+    const unsubscribeData = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // メモリ上でソート
+      data.sort((a, b) => {
+        const dateA = a.purchaseDate || '';
+        const dateB = b.purchaseDate || '';
+        return dateB.localeCompare(dateA); // 降順
+      });
+      setItems(data);
+    }, (error) => {
+      console.error("Data Fetch Error:", error);
+      notify("データの取得に失敗しました", "error");
+    });
+
+    return () => unsubscribeData();
+  }, [user]);
+
+  // CRUD操作
+  const handleSave = async (formData) => {
+    if (!db || !user) return notify("データベースに接続されていません", "error");
+    setIsLoading(true);
+    try {
+      const collectionRef = collection(db, 'artifacts', APP_ID, 'users', user.uid, 'items');
+      
+      if (formData.id) {
+        const docRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'items', formData.id);
+        const { id, ...data } = formData;
+        await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+        notify("更新しました", "success");
+      } else {
+        await addDoc(collectionRef, { ...formData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        notify("登録しました", "success");
+      }
+      setView('list');
+    } catch (e) {
+      console.error(e);
+      notify("保存に失敗しました: " + e.message, "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!db || !user) return;
+    if (!confirm("本当に削除しますか？")) return;
+    try {
+      await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'items', id));
+      notify("削除しました", "success");
+    } catch (e) {
+      notify("削除エラー", "error");
+    }
+  };
+
+  // インポート・エクスポート
+  const handleExport = () => {
+    const dataStr = JSON.stringify(items, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `kaden_backup_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    notify("エクスポート完了", "success");
+  };
+
+  const handleImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        if (!Array.isArray(imported)) throw new Error("形式が不正です");
+        if (!confirm(`${imported.length}件をインポートしますか？`)) return;
+        
+        setIsLoading(true);
+        const batch = writeBatch(db);
+        const collectionRef = collection(db, 'artifacts', APP_ID, 'users', user.uid, 'items');
+        
+        imported.forEach(item => {
+          const ref = doc(collectionRef);
+          const { id, ...data } = item;
+          batch.set(ref, { ...data, importedAt: new Date() });
+        });
+        
+        await batch.commit();
+        notify("インポート完了", "success");
+      } catch (err) {
+        notify("インポート失敗: " + err.message, "error");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  if (!isConfigReady) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-slate-50 text-slate-600 p-4">
+        <AlertCircle size={48} className="mb-4 text-yellow-500" />
+        <h2 className="text-xl font-bold mb-2">設定が必要です</h2>
+        <p className="text-center text-sm mb-4">
+          コード内の <code>manualConfig</code> にFirebaseの設定情報を入力してください。
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-md mx-auto bg-slate-50 min-h-screen pb-20 relative font-sans text-slate-800">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 sticky top-0 z-20 shadow-md flex justify-between items-center">
+        <h1 className="font-bold text-lg flex items-center gap-2">
+          <Settings size={20} className="hidden" /> 
+          家電管理
+        </h1>
+        <div className="flex gap-2">
+          <button onClick={() => setView('settings')} className="p-2 hover:bg-white/20 rounded-full transition"><Settings size={20} /></button>
+          {view !== 'list' && <button onClick={() => setView('list')} className="p-2 hover:bg-white/20 rounded-full transition"><List size={20} /></button>}
+        </div>
+      </header>
+
+      {/* Notification */}
+      {notification && (
+        <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-2 rounded-full text-white text-sm font-bold shadow-lg animate-bounce ${notification.type === 'error' ? 'bg-red-500' : 'bg-green-600'}`}>
+          {notification.msg}
+        </div>
+      )}
+
+      {/* Views */}
+      <div className="p-4">
+        {view === 'list' && (
+          <ListView 
+            items={items} 
+            onAdd={() => { setEditingItem(null); setView('form'); }} 
+            onEdit={(item) => { setEditingItem(item); setView('form'); }}
+            onDelete={handleDelete}
+            onExport={handleExport}
+            onImport={handleImport}
+          />
+        )}
+        {view === 'form' && (
+          <FormView 
+            initialData={editingItem} 
+            onSave={handleSave} 
+            onCancel={() => setView('list')} 
+            geminiKey={geminiKey}
+            notify={notify}
+            isLoading={isLoading}
+          />
+        )}
+        {view === 'settings' && (
+          <SettingsView 
+            geminiKey={geminiKey} 
+            onSave={(k) => { setGeminiKey(k); localStorage.setItem('gemini_api_key', k); notify("保存しました", "success"); }} 
+            onBack={() => setView('list')} 
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Sub Components ---
+
+function ListView({ items, onAdd, onEdit, onDelete, onExport, onImport }) {
+  const [search, setSearch] = useState('');
+  const filtered = items.filter(i => 
+    (i.name || '').includes(search) || 
+    (i.location || '').includes(search) || 
+    (i.store || '').includes(search)
+  );
+
+  const totalCost = (item) => (Number(item.price)||0) + (Number(item.installCost)||0) + (Number(item.partsCost)||0);
+  const isExpired = (d) => d && new Date(d) < new Date();
+
+  return (
+    <div className="space-y-4">
+      <input 
+        className="w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+        placeholder="検索（製品名、場所など）" 
+        value={search} 
+        onChange={e => setSearch(e.target.value)} 
+      />
+      
+      <div className="flex justify-between items-center text-xs text-gray-500 px-1">
+        <div className="flex gap-3">
+          <label className="cursor-pointer flex items-center gap-1 hover:text-blue-600"><Upload size={14} /><input type="file" className="hidden" accept=".json" onChange={onImport} />取込</label>
+          <button onClick={onExport} className="flex items-center gap-1 hover:text-blue-600"><Download size={14} />出力</button>
+        </div>
+        <span>{filtered.length} 件</span>
+      </div>
+
+      <div className="space-y-3 pb-24">
+        {filtered.length === 0 && <div className="text-center py-10 text-gray-400">データがありません</div>}
+        {filtered.map(item => (
+          <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
+            <div className="p-4">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="font-bold text-lg text-slate-800">{item.name}</h3>
+                {item.location && <span className="bg-blue-50 text-blue-600 text-xs px-2 py-1 rounded-full flex items-center gap-1"><MapPin size={10}/>{item.location}</span>}
+              </div>
+              <div className="text-sm text-gray-600 space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="flex items-center gap-1"><Calendar size={14}/> {item.purchaseDate || '---'}</span>
+                  <span className="flex items-center gap-1"><Store size={14}/> {item.store || '---'}</span>
+                </div>
+                <div className="flex justify-between font-bold text-slate-700 pt-2 border-t border-dashed border-gray-100">
+                  <span className="flex items-center gap-1"><DollarSign size={14}/> 総額</span>
+                  <span>&yen; {totalCost(item).toLocaleString()}</span>
+                </div>
+                {item.warrantyDate && (
+                  <div className={`text-xs flex items-center gap-1 ${isExpired(item.warrantyDate) ? 'text-red-500' : 'text-green-600'}`}>
+                    <AlertCircle size={12}/> 保証期限: {item.warrantyDate} {isExpired(item.warrantyDate) ? '(期限切れ)' : ''}
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end gap-3 mt-3 pt-2 border-t border-gray-100">
+                <button onClick={() => onEdit(item)} className="text-blue-600 text-sm font-bold px-3 py-1 rounded hover:bg-blue-50">詳細・編集</button>
+                <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={18}/></button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button onClick={onAdd} className="fixed bottom-6 right-6 bg-blue-600 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center hover:bg-blue-700 transition hover:scale-105 z-10">
+        <Plus size={28} />
+      </button>
+    </div>
+  );
+}
+
+function FormView({ initialData, onSave, onCancel, geminiKey, notify, isLoading }) {
+  const [data, setData] = useState({
+    name: '', purchaseDate: new Date().toISOString().split('T')[0], store: '', location: '',
+    price: '', installCost: '', partsCost: '', warrantyDate: '', memo: '',
+    ...initialData
+  });
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const handleChange = e => setData({ ...data, [e.target.name]: e.target.value });
+
+  const handleAI = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!geminiKey) return notify("設定画面でAPIキーを登録してください", "error");
+
+    setAnalyzing(true);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = async () => {
+        const base64 = reader.result.split(',')[1];
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                {text: "レシート画像を解析しJSONで出力: {name:製品名, purchaseDate:YYYY-MM-DD, store:店名, price:価格(数値のみ), warrantyDate:保証期限(YYYY-MM-DD/null)}"},
+                {inline_data: {mime_type: file.type, data: base64}}
+              ]
+            }]
+          })
+        });
+        const json = await res.json();
+        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+        const match = text.match(/\{[\s\S]*\}/);
+        if (match) {
+            const extracted = JSON.parse(match[0]);
+            setData(prev => ({ ...prev, ...extracted }));
+            notify("解析完了", "success");
+        } else {
+            throw new Error("JSONが見つかりませんでした");
+        }
+      };
+    } catch (err) {
+      console.error(err);
+      notify("解析失敗: " + err.message, "error");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 bg-white p-6 rounded-xl shadow-sm">
+      <div className="flex items-center justify-between border-b pb-2">
+        <h2 className="text-xl font-bold text-slate-800">{initialData ? '編集' : '新規登録'}</h2>
+        <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">キャンセル</button>
+      </div>
+
+      <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg">
+        <label className={`flex flex-col items-center justify-center w-full h-24 bg-white border-2 border-dashed border-indigo-200 rounded-lg cursor-pointer hover:bg-indigo-50 transition ${analyzing ? 'opacity-50' : ''}`}>
+          {analyzing ? <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div> : <Camera size={24} className="text-indigo-500 mb-1" />}
+          <span className="text-indigo-600 font-bold text-xs">{analyzing ? '解析中...' : 'レシートを撮影してAI入力'}</span>
+          <input type="file" accept="image/*" className="hidden" onChange={handleAI} disabled={analyzing} />
+        </label>
+      </div>
+
+      <form onSubmit={e => { e.preventDefault(); onSave(data); }} className="space-y-4">
+        <div>
+            <label className="text-xs font-bold text-gray-500">製品名 <span className="text-red-500">*</span></label>
+            <input required name="name" value={data.name} onChange={handleChange} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="例: 冷蔵庫" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+            <div><label className="text-xs font-bold text-gray-500">購入日</label><input type="date" name="purchaseDate" value={data.purchaseDate} onChange={handleChange} className="w-full p-2 border rounded-lg" /></div>
+            <div><label className="text-xs font-bold text-gray-500">設置場所</label><input name="location" value={data.location} onChange={handleChange} className="w-full p-2 border rounded-lg" placeholder="キッチン" /></div>
+        </div>
+        <div><label className="text-xs font-bold text-gray-500">店舗</label><input name="store" value={data.store} onChange={handleChange} className="w-full p-2 border rounded-lg" placeholder="ヨドバシカメラ" /></div>
+        
+        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <label className="text-xs font-bold text-gray-500 block mb-2"><DollarSign size={12} className="inline"/> 費用詳細</label>
+            <div className="grid grid-cols-3 gap-2">
+                <div><span className="text-xs text-gray-400">本体</span><input type="number" name="price" value={data.price} onChange={handleChange} className="w-full p-1 border rounded text-right bg-white" placeholder="0" /></div>
+                <div><span className="text-xs text-gray-400">工事費</span><input type="number" name="installCost" value={data.installCost} onChange={handleChange} className="w-full p-1 border rounded text-right bg-white" placeholder="0" /></div>
+                <div><span className="text-xs text-gray-400">部材費</span><input type="number" name="partsCost" value={data.partsCost} onChange={handleChange} className="w-full p-1 border rounded text-right bg-white" placeholder="0" /></div>
+            </div>
+        </div>
+
+        <div><label className="text-xs font-bold text-gray-500">保証期限</label><input type="date" name="warrantyDate" value={data.warrantyDate} onChange={handleChange} className="w-full p-2 border rounded-lg" /></div>
+        <div><label className="text-xs font-bold text-gray-500">メモ</label><textarea name="memo" value={data.memo} onChange={handleChange} className="w-full p-2 border rounded-lg h-20" placeholder="型番、保証書Noなど"></textarea></div>
+
+        <button type="submit" disabled={isLoading} className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition flex justify-center items-center gap-2">
+            {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <><Save size={18}/> 保 存</>}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function SettingsView({ geminiKey, onSave, onBack }) {
+  const [key, setKey] = useState(geminiKey);
+  return (
+    <div className="space-y-6 bg-white p-6 rounded-xl shadow-sm">
+      <div className="flex items-center"><button onClick={onBack} className="mr-4 text-gray-500"><Settings size={20}/></button><h2 className="text-xl font-bold">設定</h2></div>
+      
+      <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
+        <label className="block text-sm font-bold text-blue-900 mb-2">Gemini APIキー</label>
+        <p className="text-xs text-blue-700 mb-3 leading-relaxed">
+          レシート画像のAI解析機能を使用するには、Google AI StudioでAPIキーを取得して設定してください。<br/>
+          ※キーはブラウザ内にのみ保存されます。
+        </p>
+        <div className="flex gap-2">
+          <input type="password" value={key} onChange={e => setKey(e.target.value)} className="flex-1 p-2 border border-blue-200 rounded outline-none focus:border-blue-500" placeholder="AIza..." />
+          <button onClick={() => onSave(key)} className="bg-blue-600 text-white px-4 rounded text-sm font-bold hover:bg-blue-700">保存</button>
+        </div>
+        <div className="mt-2 text-right">
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-xs text-blue-600 underline">APIキーを取得する</a>
+        </div>
+      </div>
+
+      <div className="border-t pt-6">
+        <h3 className="font-bold text-gray-700 mb-2">データ管理について</h3>
+        <p className="text-sm text-gray-600 leading-relaxed">
+            Firebase Firestoreを使用しています。ブラウザのキャッシュをクリアすると、認証情報（匿名ログイン）がリセットされ、以前のデータが見えなくなる可能性があります。<br/>
+            大切なデータはこまめに「エクスポート」することをお勧めします。
+        </p>
+      </div>
+      <div className="text-center text-gray-400 text-xs mt-10">Appliance Manager v3.0 (React Native)</div>
+    </div>
+  );
+}
