@@ -63,7 +63,6 @@
             };
 
             const handleOp = (op) => {
-                // 修正: 既存の計算式を維持しつつ、現在の数値と演算子を追加
                 setExpression(prev => prev + display + ' ' + op + ' ');
                 setDisplay('0');
             };
@@ -75,8 +74,6 @@
 
             const handleEqual = () => {
                 try {
-                    // 簡易的な計算実行
-                    // 安全のため数値と演算子のみ許可
                     const safeEval = new Function('return ' + (expression + display).replace(/[^0-9\+\-\*\/ \.]/g, ''));
                     const result = safeEval();
                     setDisplay(String(result));
@@ -87,7 +84,6 @@
             };
 
             const handleConfirm = () => {
-                // 確定前に計算が残っていれば計算する
                 let finalValue = display;
                 if (expression) {
                     try {
@@ -271,7 +267,7 @@
                         </div>
                     </header>
 
-                    {/* 通知メッセージ（エラー時は自動で消さない） */}
+                    {/* 通知メッセージ */}
                     {notification && (
                         <div className={`fixed top-16 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-lg shadow-xl text-white font-bold text-sm flex items-center gap-4 transition-all duration-300 ${notification.type === 'error' ? 'bg-red-600 border-2 border-red-800' : 'bg-green-600'}`} style={{width: '90%', maxWidth: '400px'}}>
                             <div className="flex-1">
@@ -325,10 +321,12 @@
             const [search, setSearch] = useState('');
             const filtered = items.filter(i => {
                 const term = search.toLowerCase();
-                return (i.name || '').toLowerCase().includes(term) || (i.store || '').toLowerCase().includes(term) || (i.location || '').toLowerCase().includes(term);
+                return (i.name || '').toLowerCase().includes(term) || 
+                       (i.store || '').toLowerCase().includes(term) || 
+                       (i.location || '').toLowerCase().includes(term) ||
+                       (i.manufacturer || '').toLowerCase().includes(term);
             });
 
-            // 合計計算（リサイクル費追加）
             const total = (i) => (Number(i.price)||0) + (Number(i.installCost)||0) + (Number(i.partsCost)||0) + (Number(i.recycleCost)||0);
             const isExpired = (d) => d && new Date(d) < new Date();
 
@@ -363,16 +361,24 @@
                         )}
                         {filtered.map(item => (
                             <div key={item.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition">
-                                <div className="flex justify-between items-start mb-2">
-                                    <h3 className="font-bold text-lg text-slate-800">{item.name}</h3>
-                                    {item.location && <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"><i className="fa-solid fa-location-dot mr-1"></i>{item.location}</span>}
+                                <div className="mb-2">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <div className="text-xs text-slate-500 font-bold mb-0.5">{item.manufacturer}</div>
+                                            <h3 className="font-bold text-lg text-slate-800 leading-tight">{item.name}</h3>
+                                        </div>
+                                        {item.location && <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full whitespace-nowrap ml-2"><i className="fa-solid fa-location-dot mr-1"></i>{item.location}</span>}
+                                    </div>
                                 </div>
                                 <div className="text-sm text-slate-600 space-y-1">
-                                    <div className="flex justify-between">
-                                        <span><i className="fa-regular fa-calendar mr-1 w-4 text-center"></i> {item.purchaseDate || '-'}</span>
-                                        <span><i className="fa-solid fa-store mr-1 w-4 text-center"></i> {item.store || '-'}</span>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <span className="truncate"><i className="fa-regular fa-calendar mr-1 w-4 text-center"></i> {item.purchaseDate || '-'}</span>
+                                        <span className="truncate"><i className="fa-solid fa-store mr-1 w-4 text-center"></i> {item.store || '-'}</span>
                                     </div>
-                                    <div className="flex justify-between font-bold text-slate-700 pt-1 border-t border-dashed border-slate-200 mt-1">
+                                    <div className="text-xs text-slate-500">
+                                        <i className="fa-solid fa-barcode mr-1 w-4 text-center"></i> S/N: {item.serialNumber || '---'}
+                                    </div>
+                                    <div className="flex justify-between font-bold text-slate-700 pt-1 border-t border-dashed border-slate-200 mt-2">
                                         <span className="text-xs font-normal text-slate-400">総額 (リサイクル込)</span>
                                         <span className="text-lg">&yen; {total(item).toLocaleString()}</span>
                                     </div>
@@ -401,12 +407,12 @@
         // --- 登録・編集フォーム ---
         function FormView({ initialData, onSave, onCancel, geminiKey, geminiModel, notify, isLoading }) {
             const [data, setData] = useState({
-                name: '', purchaseDate: new Date().toISOString().split('T')[0], store: '', location: '',
+                name: '', manufacturer: '', serialNumber: '', purchaseDate: new Date().toISOString().split('T')[0], store: '', location: '',
                 price: '', installCost: '', partsCost: '', recycleCost: '', warrantyDate: '', memo: '',
                 ...initialData
             });
             const [isAnalyzing, setIsAnalyzing] = useState(false);
-            const [calcTarget, setCalcTarget] = useState(null); // 電卓が開いている対象フィールド名
+            const [calcTarget, setCalcTarget] = useState(null);
 
             const handleChange = e => setData({ ...data, [e.target.name]: e.target.value });
 
@@ -433,14 +439,14 @@
                         const base64 = reader.result.split(',')[1];
                         const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`;
 
-                        // プロンプトにリサイクル費を追加
+                        // プロンプトにメーカー名と製造番号を追加
                         const res = await fetch(url, {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({
                                 contents: [{
                                     parts: [
-                                        {text: "画像を解析しJSONのみ出力: {name:製品名, purchaseDate:YYYY-MM-DD, store:店名, price:本体価格(数値), installCost:工事費(数値), partsCost:部材費(数値), recycleCost:リサイクル費(数値), warrantyDate:保証期限(YYYY-MM-DD)}"},
+                                        {text: "画像を解析しJSONのみ出力: {name:製品名, manufacturer:メーカー名, serialNumber:製造番号, purchaseDate:YYYY-MM-DD, store:店名, price:本体価格(数値), installCost:工事費(数値), partsCost:部材費(数値), recycleCost:リサイクル費(数値), warrantyDate:保証期限(YYYY-MM-DD)}"},
                                         {inline_data: {mime_type: file.type, data: base64}}
                                     ]
                                 }]
@@ -480,7 +486,7 @@
                         <label className={`block cursor-pointer hover:opacity-70 transition ${isAnalyzing ? 'opacity-50 pointer-events-none' : ''}`}>
                             <div className="flex flex-col items-center text-indigo-600">
                                 {isAnalyzing ? <i className="fa-solid fa-spinner fa-spin text-2xl mb-2"></i> : <i className="fa-solid fa-camera text-2xl mb-2"></i>}
-                                <span className="font-bold text-sm">{isAnalyzing ? '解析中...' : 'レシートを撮影して自動入力'}</span>
+                                <span className="font-bold text-sm">{isAnalyzing ? '解析中...' : 'レシート・保証書を撮影して自動入力'}</span>
                             </div>
                             <input type="file" accept="image/*" className="hidden" onChange={handleAI} />
                         </label>
@@ -489,8 +495,20 @@
                     <form onSubmit={e => { e.preventDefault(); onSave(data); }} className="space-y-4">
                         <div>
                             <label className="text-xs font-bold text-slate-500">製品名 <span className="text-red-500">*</span></label>
-                            <input required name="name" value={data.name} onChange={handleChange} className="w-full p-3 border rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="例: 冷蔵庫" />
+                            <input required name="name" value={data.name} onChange={handleChange} className="w-full p-3 border rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="例: ドラム式洗濯機" />
                         </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs font-bold text-slate-500">メーカー名</label>
+                                <input name="manufacturer" value={data.manufacturer} onChange={handleChange} className="w-full p-3 border rounded-lg bg-slate-50" placeholder="例: Panasonic" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500">製造番号 (S/N)</label>
+                                <input name="serialNumber" value={data.serialNumber} onChange={handleChange} className="w-full p-3 border rounded-lg bg-slate-50" placeholder="シリアルNo." />
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-bold text-slate-500">購入日</label>
@@ -529,7 +547,7 @@
                         </div>
                         <div>
                             <label className="text-xs font-bold text-slate-500">メモ</label>
-                            <textarea name="memo" value={data.memo} onChange={handleChange} className="w-full p-3 border rounded-lg bg-slate-50 h-20" placeholder="型番など"></textarea>
+                            <textarea name="memo" value={data.memo} onChange={handleChange} className="w-full p-3 border rounded-lg bg-slate-50 h-20" placeholder="備考など"></textarea>
                         </div>
 
                         <button type="submit" disabled={isLoading} className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition flex justify-center items-center gap-2">
@@ -608,7 +626,7 @@
                             ブラウザのキャッシュクリア等で消える可能性があるため、定期的に「エクスポート」を行ってください。
                         </p>
                     </div>
-                    <div className="text-center text-slate-400 text-xs mt-4">Appliance Manager Local v2.0</div>
+                    <div className="text-center text-slate-400 text-xs mt-4">Appliance Manager Local v2.1</div>
                 </div>
             );
         }
