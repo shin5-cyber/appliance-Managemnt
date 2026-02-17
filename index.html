@@ -5,18 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>家電管理マネージャー</title>
     
-    <!-- PWA設定: iOS & Android用 -->
+    <!-- PWA設定 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="家電管理">
     <meta name="theme-color" content="#1e293b">
     
-    <!-- アプリアイコン (Base64 SVG) -->
-    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxZTI5M2IiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM0MzM4Y2EiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0idXJsKCNnKSIvPjxwYXRoIGQ9Ik0zNTIgMjg4aC0xNnYtODhjMC0zOS43LTM1LjgtNzItODAtNzJzLTgwIDMyLjMtODAgNzJ2ODhINTIuOGMtMTQuMyAwLTI2IDExLjYtMjYgMjZ2MTUyYzAgMjYuNSAyMS41IDQ4IDQ4IDQ4aDI1Ni40YzI2LjUgMCA0OC0yMS41IDQ4LTQ4VjMxNGMwLTE0LjMtMTEuNy0yNi0yNi0yNnptLTgwIDExMmMwIDguOC03LjIgMTYtMTYgMTZzLTE2LTcuMi0xNi0xNnYtMzJjMC04LjggNy4yLTE2IDE2LTE2czE2IDcuMiAxNiAxNnZTMzJ6bS0zMi0xMTJjLTE3LjcgMC0zMi0xNC4zLTMyLTMyVjE2MGMwLTE3LjcgMTQuMy0zMiAzMi0zMnMzMiAxNC4zIDMyIDMydjk2YzAgMTcuNy0xNC4zIDMyLTMyIDMyeiIgZmlsbD0iI2ZmZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzgsIDQ4KSIvPjwvc3ZnPg==">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxZTI5M2IiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM0MzM4Y2EiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0idXJsKCNnKSIgcng9IjEyOCIgcnk9IjEyOCIvPjxwYXRoIGQ9Ik0zNTIgMjg4aC0xNnYtODhjMC0zOS43LTM1LjgtNzItODAtNzJzLTgwIDMyLjMtODAgNzJ2ODhINTIuOGMtMTQuMyAwLTI2IDExLjYtMjYgMjZ2MTUyYzAgMjYuNSAyMS41IDQ4IDQ4IDQ4aDI1Ni40YzI2LjUgMCA0OC0yMS41IDQ4LTQ4VjMxNGMwLTE0LjMtMTEuNy0yNi0yNi0yNnptLTgwIDExMmMwIDguOC03LjIgMTYtMTYgMTZzLTE2LTcuMi0xNi0xNnYtMzJjMC04LjggNy4yLTE2IDE2LTE2czE2IDcuMiAxNiAxNnZTMzJ6bS0zMi0xMTJjLTE3LjcgMC0zMi0xNC4zLTMyLTMyVjE2MGMwLTE3LjcgMTQuMy0zMiAzMi0zMnMzMiAxNC4zIDMyIDMydjk2YzAgMTcuNy0xNC4zIDMyLTMyIDMyeiIgZmlsbD0iI2ZmZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzgsIDQ4KSIvPjwvc3ZnPg==">
-
-    <!-- Web App Manifest (Data URI) -->
-    <link rel="manifest" href='data:application/manifest+json,{"name":"家電管理","short_name":"家電管理","start_url":".","display":"standalone","background_color":"#f1f5f9","theme_color":"#1e293b","icons":[{"src":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxZTI5M2IiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM0MzM4Y2EiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0idXJsKCNnKSIvPjxwYXRoIGQ9Ik0zNTIgMjg4aC0xNnYtODhjMC0zOS43LTM1LjgtNzItODAtNzJzLTgwIDMyLjMtODAgNzJ2ODhINTIuOGMtMTQuMyAwLTI2IDExLjYtMjYgMjZ2MTUyYzAgMjYuNSAyMS41IDQ4IDQ4IDQ4aDI1Ni40YzI2LjUgMCA0OC0yMS41IDQ4LTQ4VjMxNGMwLTE0LjMtMTEuNy0yNi0yNi0yNnptLTgwIDExMmMwIDguOC03LjIgMTYtMTYgMTZzLTE2LTcuMi0xNi0xNnYtMzJjMC04LjggNy4yLTE2IDE2LTE2czE2IDcuMiAxNiAxNnZTMzJ6bS0zMi0xMTJjLTE3LjcgMC0zMi0xNC4zLTMyLTMyVjE2MGMwLTE3LjcgMTQuMy0zMiAzMi0zMnMzMiAxNC4zIDMyIDMydjk2YzAgMTcuNy0xNC4zIDMyLTMyIDMyeiIgZmlsbD0iI2ZmZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzgsIDQ4KSIvPjwvc3ZnPg==","sizes":"512x512","type":"image/svg+xml"}]}'>
+    <!-- アプリアイコン (PNG Base64) -->
+    <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAMAAAAKE/YAAAAAkFBMVEUAAAD///8eKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTseKTw+Xk+GAAAAL3RSTlMAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi9w5s4BAAAH0klEQVR42u2c2XbqOhBFTQIJISFACJNAeP//y0653c5xTnL22r2691V1iw7YkiXZkrVaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAnxC6/dTd6XI5X6/P++3l9fV+u14u3W0/hC7362/h+3K/dPeH0OXt+tv4frt0d4fQ5fX6G/h6u3R3h9Dl9dvw/Xa5dHeH0OXj+tv4+Lh0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl4/rb+Hi7dHeH0OXj+tv4eLt0d4fQ5eP62/h4u3R3h9Dl9frb+H67XLp7g6hy936W/i+3C/d/SF0+6m70+Vyvl6f99vL6+v9dr1cutu/t9s/V7/Z6V8AAAAASUVORK5CYII=">
 
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -32,13 +28,18 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
-        /* iPhoneのセーフエリア対応 */
-        .safe-area-pt { padding-top: env(safe-area-inset-top); }
-        .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            background-color: #f8fafc; 
+            /* iPhone下部のバーと重ならないようにする */
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        /* ロード時のちらつき防止 */
         #root { display: block; }
+        /* アニメーション */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        
         /* 電卓 */
         .calc-btn { @apply bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded text-lg transition active:scale-95 touch-manipulation; }
         .calc-btn-op { @apply bg-blue-50 hover:bg-blue-100 text-blue-600; }
@@ -59,6 +60,7 @@
         const STORAGE_KEY_API = 'gemini_api_key_local';
         const STORAGE_KEY_MODEL = 'gemini_api_model_local';
 
+        // デフォルトモデル
         const DEFAULT_MODEL = 'gemini-2.5-flash-preview-09-2025';
 
         // --- 電卓モーダル ---
@@ -117,8 +119,8 @@
             if (!isOpen) return null;
 
             return (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center animate-fade-in safe-area-pb">
-                    <div className="bg-white w-full max-w-sm rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center animate-fade-in" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
+                    <div className="bg-white w-full max-w-sm rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden mb-4 sm:mb-0">
                         <div className="bg-slate-800 p-4 text-white">
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-sm text-slate-300 font-bold"><i className="fa-solid fa-calculator mr-2"></i>{title}</span>
@@ -275,8 +277,16 @@
 
             return (
                 <div className="max-w-xl mx-auto bg-slate-50 min-h-screen shadow-2xl relative font-sans text-slate-800 flex flex-col">
-                    {/* ヘッダー: iOS PWA対応のためパディング調整 */}
-                    <header className="bg-slate-800 text-white p-4 pt-safe-area-top sticky top-0 z-20 shadow-md flex justify-between items-center safe-area-pt">
+                    {/* ヘッダー: iOS PWA対応のため上部パディング計算を追加 */}
+                    <header 
+                        className="bg-slate-800 text-white shadow-md flex justify-between items-center sticky top-0 z-20"
+                        style={{
+                            paddingTop: 'calc(1rem + env(safe-area-inset-top))',
+                            paddingBottom: '1rem',
+                            paddingLeft: '1rem',
+                            paddingRight: '1rem'
+                        }}
+                    >
                         <h1 className="font-bold text-lg flex items-center gap-2"><i className="fa-solid fa-plug text-blue-400"></i>家電管理帳</h1>
                         <div className="flex gap-2">
                             <button onClick={() => setView('settings')} className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-full transition"><i className="fa-solid fa-gear"></i></button>
@@ -288,7 +298,14 @@
 
                     {/* 通知メッセージ */}
                     {notification && (
-                        <div className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-2xl text-white font-bold text-sm flex items-center gap-4 transition-all duration-300 ${notification.type === 'error' ? 'bg-red-500' : 'bg-emerald-600'}`} style={{width: '90%', maxWidth: '400px'}}>
+                        <div 
+                            className={`fixed left-1/2 transform -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-2xl text-white font-bold text-sm flex items-center gap-4 transition-all duration-300 ${notification.type === 'error' ? 'bg-red-600 border-2 border-red-800' : 'bg-emerald-600'}`} 
+                            style={{
+                                width: '90%', 
+                                maxWidth: '400px',
+                                top: 'calc(1.5rem + env(safe-area-inset-top) + 60px)' /* ヘッダーの下に表示 */
+                            }}
+                        >
                             <div className="flex-1">
                                 {notification.type === 'error' && <i className="fa-solid fa-circle-exclamation mr-2"></i>}
                                 {notification.msg}
@@ -300,7 +317,7 @@
                     )}
 
                     {/* メインエリア */}
-                    <div className="flex-1 p-4 pb-24 safe-area-pb">
+                    <div className="flex-1 p-4 pb-24">
                         {view === 'list' && (
                             <ListView 
                                 items={items} 
@@ -352,7 +369,7 @@
                     <div className="relative">
                         <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-400"></i>
                         <input className="w-full pl-10 p-3 bg-white rounded-xl shadow-sm border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 transition text-sm" 
-                            placeholder="製品名、場所、店名で検索..." value={search} onChange={e => setSearch(e.target.value)} />
+                            placeholder="検索..." value={search} onChange={e => setSearch(e.target.value)} />
                     </div>
 
                     {/* ツールバー */}
@@ -364,7 +381,7 @@
                             </label>
                             <button onClick={onExport} className="hover:text-blue-600 flex items-center gap-1 transition"><i className="fa-solid fa-file-export"></i> 出力</button>
                         </div>
-                        <span className="font-bold bg-slate-200 px-2 py-0.5 rounded-full">{filtered.length}</span>
+                        <span className="font-bold bg-slate-200 px-2 py-0.5 rounded-full">{filtered.length} 件</span>
                     </div>
 
                     {/* リスト表示 */}
@@ -379,7 +396,7 @@
                             <div key={item.id} onClick={() => onEdit(item)} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 active:bg-slate-50 transition cursor-pointer relative overflow-hidden group">
                                 <div className="flex justify-between items-start mb-2 relative z-10">
                                     <h3 className="font-bold text-lg text-slate-800 line-clamp-1">{item.name}</h3>
-                                    {item.location && <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap"><i className="fa-solid fa-location-dot mr-1"></i>{item.location}</span>}
+                                    {item.location && <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"><i className="fa-solid fa-location-dot mr-1"></i>{item.location}</span>}
                                 </div>
                                 <div className="text-sm text-slate-500 space-y-1 relative z-10">
                                     <div className="flex justify-between">
@@ -405,7 +422,7 @@
                         ))}
                     </div>
 
-                    <button onClick={onAdd} className="fixed bottom-8 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl hover:bg-blue-700 active:scale-90 transition z-30 ring-4 ring-blue-100">
+                    <button onClick={onAdd} className="fixed bottom-8 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl hover:bg-blue-700 active:scale-90 transition z-30 ring-4 ring-blue-100" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
                         <i className="fa-solid fa-plus"></i>
                     </button>
                 </div>
