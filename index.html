@@ -64,7 +64,7 @@
         const DEFAULT_MODEL = 'gemini-2.5-flash';
         
         // 使用できない古いモデルのリスト
-        const DEPRECATED_MODELS = ['gemini-2.5-flash-preview-09-2025', 'gemini-1.5-flash-latest'];
+        const DEPRECATED_MODELS = ['gemini-1.5-flash-latest', 'gemini-2.5-flash-preview-09-2025'];
 
         // --- 電卓モーダル ---
         function CalculatorModal({ isOpen, onClose, onConfirm, initialValue, title }) {
@@ -412,9 +412,12 @@
                                 </div>
                                 <div className="text-sm text-slate-500 space-y-1 relative z-10">
                                     <div className="flex justify-between">
-                                        <span><i className="fa-regular fa-calendar mr-1.5 w-3 text-center"></i> {item.purchaseDate || '-'}</span>
-                                        <span className="max-w-[50%] truncate"><i className="fa-solid fa-store mr-1.5 w-3 text-center"></i> {item.store || '-'}</span>
+                                        <span><i className="fa-regular fa-calendar mr-1.5 w-3 text-center"></i> {item.purchaseDate || '-'} {item.installDate && <span className="text-xs ml-1">(設: {item.installDate})</span>}</span>
+                                        <span className="max-w-[40%] truncate"><i className="fa-solid fa-store mr-1.5 w-3 text-center"></i> {item.store || '-'}</span>
                                     </div>
+                                    {item.serialNumber && (
+                                        <div className="text-xs text-slate-400 font-mono">S/N: {item.serialNumber}</div>
+                                    )}
                                     <div className="flex justify-between font-bold text-slate-700 pt-2 mt-1 border-t border-dashed border-slate-100">
                                         <span className="text-xs font-normal text-slate-400">総額 (リサイクル込)</span>
                                         <span className="text-lg text-blue-900">&yen; {total(item).toLocaleString()}</span>
@@ -444,7 +447,7 @@
         // --- 登録・編集フォーム ---
         function FormView({ initialData, onSave, onCancel, geminiKey, geminiModel, notify, isLoading }) {
             const [data, setData] = useState({
-                name: '', purchaseDate: new Date().toISOString().split('T')[0], store: '', location: '',
+                name: '', purchaseDate: new Date().toISOString().split('T')[0], installDate: '', store: '', location: '', serialNumber: '',
                 price: '', installCost: '', partsCost: '', recycleCost: '', warrantyDate: '', memo: '',
                 ...initialData
             });
@@ -478,7 +481,7 @@
                             body: JSON.stringify({
                                 contents: [{
                                     parts: [
-                                        {text: "画像を解析しJSONのみ出力: {name:製品名, purchaseDate:YYYY-MM-DD, store:店名, price:本体価格(数値), installCost:工事費(数値), partsCost:部材費(数値), recycleCost:リサイクル費(数値), warrantyDate:保証期限(YYYY-MM-DD)}"},
+                                        {text: "画像を解析しJSONのみ出力: {name:製品名, purchaseDate:購入日(YYYY-MM-DD), installDate:設置日(YYYY-MM-DD), store:店名, serialNumber:シリアル番号, price:本体価格(数値), installCost:工事費(数値), partsCost:部材費(数値), recycleCost:リサイクル費(数値), warrantyDate:保証期限(YYYY-MM-DD)}"},
                                         {inline_data: {mime_type: file.type, data: base64}}
                                     ]
                                 }]
@@ -540,14 +543,25 @@
                                     <input type="date" name="purchaseDate" value={data.purchaseDate} onChange={handleChange} className="w-full mt-1 p-3 border rounded-xl bg-slate-50 outline-none" />
                                 </div>
                                 <div>
+                                    <label className="text-xs font-bold text-slate-500 ml-1">設置日</label>
+                                    <input type="date" name="installDate" value={data.installDate || ''} onChange={handleChange} className="w-full mt-1 p-3 border rounded-xl bg-slate-50 outline-none" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
                                     <label className="text-xs font-bold text-slate-500 ml-1">設置場所</label>
                                     <input name="location" value={data.location} onChange={handleChange} className="w-full mt-1 p-3 border rounded-xl bg-slate-50 outline-none" placeholder="キッチン" />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 ml-1">店舗</label>
+                                    <input name="store" value={data.store} onChange={handleChange} className="w-full mt-1 p-3 border rounded-xl bg-slate-50 outline-none" placeholder="ヨドバシカメラ" />
                                 </div>
                             </div>
                             
                             <div>
-                                <label className="text-xs font-bold text-slate-500 ml-1">店舗</label>
-                                <input name="store" value={data.store} onChange={handleChange} className="w-full mt-1 p-3 border rounded-xl bg-slate-50 outline-none" placeholder="ヨドバシカメラ" />
+                                <label className="text-xs font-bold text-slate-500 ml-1">シリアル番号 (S/N)</label>
+                                <input name="serialNumber" value={data.serialNumber || ''} onChange={handleChange} className="w-full mt-1 p-3 border rounded-xl bg-slate-50 outline-none" placeholder="例: ABC123456" />
                             </div>
                             
                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -634,6 +648,7 @@
                             <select value={model} onChange={e => setModel(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg outline-none bg-white mb-2">
                                 <option value="gemini-2.5-flash">gemini-2.5-flash (推奨・最新)</option>
                                 <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                                <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp</option>
                                 <option value="gemini-1.5-flash">gemini-1.5-flash</option>
                                 <option value="gemini-1.5-pro">gemini-1.5-pro</option>
                             </select>
@@ -656,7 +671,7 @@
                             ブラウザのキャッシュクリア等で消える可能性があるため、定期的に「エクスポート」を行ってください。
                         </p>
                     </div>
-                    <div className="text-center text-slate-300 text-xs mt-4">Appliance Manager Local v2.3</div>
+                    <div className="text-center text-slate-300 text-xs mt-4">Appliance Manager Local v2.4</div>
                 </div>
             );
         }
